@@ -1,0 +1,138 @@
+//AdminHistory Client unit test reference
+
+file structure
+/components/
+  AttendanceHistory.vue
+/tests/
+  AttendanceHistory.test.ts
+
+
+AttendanceHistory.test.ts
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { ref } from 'vue'
+
+const mockRecords = [
+  {
+    id: '1',
+    startDate: '2024-06-01',
+    timeIn: '09:15:00',
+    timeOut: '18:00:00',
+    lateMinutes: 15,
+    email: 'test@example.com'
+  }
+]
+
+// Utilities from component
+function formatDate(dateStr: string) {
+  const date = new Date(dateStr)
+  return date.toLocaleDateString(undefined, {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  })
+}
+
+function formatTime(timeStr: string) {
+  const date = new Date(`1970-01-01T${timeStr}`)
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+describe('AttendanceHistory utilities', () => {
+  it('formats date correctly', () => {
+    const result = formatDate('2024-06-01')
+    expect(result).toMatch(/Sat.*2024/) // matches "Sat, Jun 1, 2024" (format may vary by locale)
+  })
+
+  it('formats time correctly', () => {
+    const result = formatTime('09:15:00')
+    expect(result).toBe('09:15')
+  })
+})
+
+describe('fetchAttendance()', () => {
+  const employeeSearch = ref('')
+  const startDate = ref('')
+  const endDate = ref('')
+  const attendanceRecords = ref<any[]>([])
+  const loading = ref(false)
+  const error = ref(false)
+
+  beforeEach(() => {
+    attendanceRecords.value = []
+    loading.value = false
+    error.value = false
+  })
+
+  it('fetches attendance records and populates the state', async () => {
+    globalThis.$fetch = vi.fn().mockResolvedValue(mockRecords)
+
+    async function fetchAttendance() {
+      loading.value = true
+      error.value = false
+
+      try {
+        const query = new URLSearchParams()
+        if (employeeSearch.value) query.append('employee', employeeSearch.value)
+        if (startDate.value) query.append('start', startDate.value)
+        if (endDate.value) query.append('end', endDate.value)
+
+        const data = await $fetch(`/api/admin/attendance-history?${query.toString()}`)
+        attendanceRecords.value = data || []
+      } catch (err) {
+        error.value = true
+      } finally {
+        loading.value = false
+      }
+    }
+
+    await fetchAttendance()
+
+    expect(globalThis.$fetch).toHaveBeenCalled()
+    expect(attendanceRecords.value.length).toBe(1)
+    expect(attendanceRecords.value[0].email).toBe('test@example.com')
+    expect(loading.value).toBe(false)
+    expect(error.value).toBe(false)
+  })
+
+  it('sets error when fetch fails', async () => {
+    globalThis.$fetch = vi.fn().mockRejectedValue(new Error('Fetch error'))
+
+    async function fetchAttendance() {
+      loading.value = true
+      error.value = false
+
+      try {
+        const query = new URLSearchParams()
+        if (employeeSearch.value) query.append('employee', employeeSearch.value)
+        if (startDate.value) query.append('start', startDate.value)
+        if (endDate.value) query.append('end', endDate.value)
+
+        const data = await $fetch(`/api/admin/attendance-history?${query.toString()}`)
+        attendanceRecords.value = data || []
+      } catch (err) {
+        error.value = true
+      } finally {
+        loading.value = false
+      }
+    }
+
+    await fetchAttendance()
+
+    expect(error.value).toBe(true)
+    expect(loading.value).toBe(false)
+  })
+})
+
+
+
+Note: Install Vitest
+  npm install -D vitest @vitest/ui jsdom
+Add to package.json or vitest.config.ts:
+test: {
+  globals: true,
+  environment: 'jsdom'
+}
+
+and run
+npx vitest
