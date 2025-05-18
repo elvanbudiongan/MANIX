@@ -1,0 +1,40 @@
+//controller EmployeeHistory
+
+package controllers
+
+import play.api.mvc._
+import javax.inject._
+import scala.concurrent.{ExecutionContext, Future}
+import repositories.{AttendanceView, AttendanceHistoryRepository}
+import java.time.LocalDate
+import play.api.libs.json._
+
+@Singleton
+class EmployeeHistoryController @Inject()(
+  cc: ControllerComponents,
+  attendanceRepo: AttendanceHistoryRepository
+)(implicit ec: ExecutionContext) extends AbstractController(cc) {
+
+  def getMyAttendanceHistory(): Action[AnyContent] = Action.async { implicit request =>
+    // Assume employee's email is extracted from session or auth
+    val maybeEmail = request.session.get("email") // Replace with JWT if needed
+
+    maybeEmail match {
+      case Some(email) =>
+        val query = request.queryString.map { case (k, v) => k -> v.mkString }
+        val start = query.get("start").map(LocalDate.parse)
+        val end = query.get("end").map(LocalDate.parse)
+
+        attendanceRepo.getAttendanceWithFilters(Some(email), start, end).map { records =>
+          Ok(Json.toJson(records))
+        }.recover {
+          case ex =>
+            ex.printStackTrace()
+            InternalServerError("Could not fetch attendance.")
+        }
+
+      case None =>
+        Future.successful(Unauthorized("No employee session found"))
+    }
+  }
+}
