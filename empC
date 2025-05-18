@@ -1,0 +1,64 @@
+//emp Client
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import type { AttendanceView } from '~/types/attendance'
+import { useFetch } from '#app'
+
+const attendance = ref<AttendanceView[]>([])
+const error = ref<string | null>(null)
+
+const fetchHistory = async () => {
+  const { data, error: fetchError } = await useFetch<AttendanceView[]>('/api/employee/attendance-history', {
+    method: 'GET',
+    credentials: 'include',
+  })
+
+  if (fetchError.value) {
+    error.value = 'Failed to load attendance history.'
+  } else if (data.value) {
+    attendance.value = data.value
+  }
+}
+
+onMounted(fetchHistory)
+
+const getStatus = (late: number): string => {
+  if (late > 0) return 'Late'
+  return 'Present'
+}
+</script>
+
+<template>
+  <div class="p-4">
+    <h1 class="text-2xl font-bold mb-4">My Attendance History</h1>
+
+    <div v-if="error" class="text-red-600">{{ error }}</div>
+
+    <table v-else class="w-full border-collapse border border-gray-200">
+      <thead class="bg-gray-100">
+        <tr>
+          <th class="border p-2">Date</th>
+          <th class="border p-2">Time In</th>
+          <th class="border p-2">Time Out</th>
+          <th class="border p-2">Late Minutes</th>
+          <th class="border p-2">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="entry in attendance" :key="entry.id" class="hover:bg-gray-50">
+          <td class="border p-2">{{ entry.startDate }}</td>
+          <td class="border p-2">{{ entry.timeIn }}</td>
+          <td class="border p-2">{{ entry.timeOut }}</td>
+          <td class="border p-2">{{ entry.lateMinutes }}</td>
+          <td class="border p-2" :class="{
+            'text-red-500': entry.lateMinutes > 0,
+            'text-green-600': entry.lateMinutes === 0
+          }">
+            {{ getStatus(entry.lateMinutes) }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</template>
